@@ -1,0 +1,30 @@
+[package]
+name = "piconbiere"
+description = "Scrape and download media from Piccoma/ピッコマ"
+version = "0.1.0"
+authors = ["Teh Uncle Dolan"]
+license = "BSD-3-Clause"
+edition = "2021"
+repository = "https://github.com/TehUncleDolan/piconbiere"
+readme = "README.md"
+keywords = ["scraping", "manga", "webtoon", "Piccoma"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+braque = "0.1"
+clap = { version = "3.0", features = ["derive"] }
+eyre = "0.6"
+image = { version = "0.24", default-features = false, features = ["jpeg_rayon", "png"]}
+indicatif = "0.16"
+kuchiki = "0.8"
+once_cell = "1.0"
+rand = "0.8"
+regex = "1.0"
+rpassword = "6.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+termcolor= "1.0"
+ureq = { version = "2.0", features = ["cookies", "json"] }
+url = { version = "2.0", features = ["serde"] }
+webp = "0.2"
+zip = { version = "0.6", default-features = false, features = ["deflate"]}

@@ -1,0 +1,105 @@
+on: [push]
+
+name: Build
+
+jobs:
+# Linux {{{
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install latest Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Build
+        run: >
+          cargo build --release &&
+          strip -s target/release/piconbiere &&
+          mv target/release/piconbiere target/release/piconbiere_amd64
+
+      - name: Lint
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+      - name: Release PiconBiere for Linux
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/piconbiere')
+        with:
+          files: |
+            target/release/piconbiere_amd64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# }}}
+# Windows {{{
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Install latest Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - name: Release PiconBiere for Windows
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/piconbiere')
+        with:
+          files: target/release/piconbiere.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# }}}
+# MacOS {{{
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Install latest Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-apple-darwin
+
+      - name: Build
+        run: >
+          cargo build --release &&
+          strip -SxD target/release/piconbiere &&
+          mv target/release/piconbiere target/release/piconbiere_darwin
+
+      - name: Release PiconBiere for MacOS
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/piconbiere')
+        with:
+          files: |
+            target/release/piconbiere_darwin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# }}}
