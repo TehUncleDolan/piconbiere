@@ -35,7 +35,7 @@ jobs:
 
       - name: Release PiconBiere for Linux
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/piconbiere')
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             target/release/piconbiere_amd64
@@ -65,7 +65,7 @@ jobs:
 
       - name: Release PiconBiere for Windows
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/piconbiere')
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: target/release/piconbiere.exe
         env:
@@ -95,7 +95,7 @@ jobs:
 
       - name: Release PiconBiere for MacOS
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/piconbiere')
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             target/release/piconbiere_darwin
