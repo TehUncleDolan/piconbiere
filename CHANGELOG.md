@@ -15,6 +15,8 @@ Possible sections are:
 
 ## [Unreleased] - ReleaseDate
 
+## [0.1.2] - 2022-07-03
+
 ### Fixed
 
 - CI worfklow to release binaries

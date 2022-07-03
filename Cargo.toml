@@ -1,7 +1,7 @@
 [package]
 name = "piconbiere"
 description = "Scrape and download media from Piccoma/ピッコマ"
-version = "0.1.2-alpha.0"
+version = "0.1.2"
 authors = ["Teh Uncle Dolan"]
 license = "BSD-3-Clause"
 edition = "2021"
