@@ -15,6 +15,8 @@ Possible sections are:
 
 ## [Unreleased] - ReleaseDate
 
+## [0.1.1] - 2022-07-03
+
 Just force the release to publish the binaries and fix the mess I made...
 
 ## [0.1.0] - 2022-07-03
