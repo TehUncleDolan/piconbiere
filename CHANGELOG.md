@@ -15,6 +15,8 @@ Possible sections are:
 
 ## [Unreleased] - ReleaseDate
 
+## [0.2.0] - 2022-07-06
+
 ### Added
 
 - Support for volumes
