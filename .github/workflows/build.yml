@@ -20,7 +20,6 @@ jobs:
       - name: Build
         run: >
           cargo build --release &&
-          strip -s target/release/piconbiere &&
           mv target/release/piconbiere target/release/piconbiere_amd64
 
       - name: Lint
@@ -90,7 +89,6 @@ jobs:
       - name: Build
         run: >
           cargo build --release &&
-          strip -SxD target/release/piconbiere &&
           mv target/release/piconbiere target/release/piconbiere_darwin
 
       - name: Release PiconBiere for MacOS
