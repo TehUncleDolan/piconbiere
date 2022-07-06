@@ -15,6 +15,10 @@ Possible sections are:
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- fix episode title
+
 ## [0.2.1] - 2022-07-06
 
 ### Fixed

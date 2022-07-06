@@ -197,7 +197,11 @@ impl TryFrom<models::serie::Media> for Media {
                 if value.title.is_empty() {
                     format!("Episode {:03}", number)
                 } else {
-                    EPISODE_TITLE_PREFIX.replace(&value.title, "").into_owned()
+                    format!(
+                        "{:03} - {}",
+                        number,
+                        EPISODE_TITLE_PREFIX.replace(&value.title, "")
+                    )
                 }
             },
             MediaType::Volume => format!("Tome {:02}", number),
