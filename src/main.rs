@@ -223,16 +223,16 @@ fn compute_media_list<'a>(
             if !selection.contains(&media.number()) {
                 return false;
             }
-            if !media.is_available() {
-                termio::print_warn(&format!(
-                    "{media_type} {} not available",
+            if media.is_present_at(destination) {
+                termio::print_ok(&format!(
+                    "{media_type} {} already downloaded",
                     media.number()
                 ));
                 return false;
             }
-            if media.is_present_at(destination) {
-                termio::print_ok(&format!(
-                    "{media_type} {} already downloaded",
+            if !media.is_available() {
+                termio::print_warn(&format!(
+                    "{media_type} {} not available",
                     media.number()
                 ));
                 return false;
