@@ -15,6 +15,8 @@ Possible sections are:
 
 ## [Unreleased] - ReleaseDate
 
+## [0.2.1] - 2022-07-06
+
 ### Fixed
 
 - download with no explicit episode/volume selection
