@@ -94,6 +94,10 @@ fn download(
     let media_list =
         compute_media_list(serie.media(), media_type, selection, destination)?;
 
+    if media_list.is_empty() {
+        return Ok(());
+    }
+
     // Setup the progress bars (for media and pages).
     println!("Downloading {}", serie.title());
     let progress_bars = MultiProgress::new();

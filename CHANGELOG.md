@@ -15,6 +15,10 @@ Possible sections are:
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- don't display the progress bar when there is nothing to do
+
 ### Fixed
 
 - fix episode title
