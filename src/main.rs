@@ -220,7 +220,7 @@ fn compute_media_list<'a>(
     Ok(media_list
         .into_values()
         .filter(|media| {
-            if !selection.contains(&media.number()) {
+            if !(selection.is_empty() || selection.contains(&media.number())) {
                 return false;
             }
             if media.is_present_at(destination) {

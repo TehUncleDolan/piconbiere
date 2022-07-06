@@ -15,6 +15,10 @@ Possible sections are:
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- download with no explicit episode/volume selection
+
 ## [0.2.0] - 2022-07-06
 
 ### Added
