@@ -15,6 +15,8 @@ Possible sections are:
 
 ## [Unreleased] - ReleaseDate
 
+## [0.2.2] - 2022-07-06
+
 ### Changed
 
 - don't display the progress bar when there is nothing to do
