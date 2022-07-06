@@ -43,10 +43,10 @@
 
 // }}}
 
-use clap::Parser;
+use clap::{ArgGroup, Parser};
 use eyre::{bail, ensure, eyre, Result, WrapErr};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use piconbiere::{self, fs, termio, Client, Episode, Serie, SerieID};
+use piconbiere::{fs, termio, Client, Media, MediaType, Serie, SerieID};
 use std::{
     io::{Cursor, Write},
     path::{Path, PathBuf},
@@ -56,6 +56,7 @@ use zip::{write::FileOptions, ZipWriter};
 
 fn main() -> Result<()> {
     let opts = Opts::parse();
+    let media_type = opts.media_type();
     let client = Client::new(opts.retry);
 
     // If a username is provided, try to login.
@@ -67,64 +68,64 @@ fn main() -> Result<()> {
             .with_context(|| format!("login as {email}"))?;
     }
 
-    // Fetch serie info and episodes list.
-    let serie = Serie::new(&client, opts.serie).context("get serie")?;
+    // Fetch serie info and media list.
+    let serie =
+        Serie::new(&client, opts.serie, media_type).context("get serie")?;
+
+    // Create output directory, if necessary.
     let destination = [opts.output, fs::sanitize_name(serie.title())]
         .iter()
         .collect::<PathBuf>();
-
-    // Create output directory, if necessary.
     fs::mkdir_p(&destination).context("create serie directory")?;
 
     // Download the pages.
-    match opts.episode {
-        Some(episode) => {
-            download_one(&client, &destination, &serie, episode).with_context(
-                || format!("download serie {} episode {episode}", opts.serie),
-            )?;
-        },
-        None => {
-            download_all(&client, &destination, &serie)
-                .with_context(|| format!("download serie {}", opts.serie))?;
-        },
+    if let Some(episode) = opts.episode {
+        download_media(&client, &destination, &serie, episode, media_type)
+            .with_context(|| {
+                format!("download serie {} episode {episode}", opts.serie)
+            })?;
+    } else if let Some(volume) = opts.volume {
+        download_media(&client, &destination, &serie, volume, media_type)
+            .with_context(|| {
+                format!("download serie {} volume {volume}", opts.serie)
+            })?;
+    } else {
+        download_serie(&client, &destination, &serie, media_type)
+            .with_context(|| format!("download serie {}", opts.serie))?;
     }
 
     Ok(())
 }
 
-/// Downloads a single episode.
-fn download_one(
+/// Downloads a single media.
+fn download_media(
     client: &Client,
     destination: &Path,
     serie: &Serie,
-    episode_number: u16,
+    media_number: u16,
+    media_type: MediaType,
 ) -> Result<()> {
-    // Select the requested episode.
-    let episode = match serie
-        .episodes()
-        .find(|episode| episode.number() == episode_number)
+    // Select the requested media.
+    let media = match serie.media().find(|media| media.number() == media_number)
     {
-        Some(episode) => episode,
-        None => bail!("episode not found"),
+        Some(media) => media,
+        None => bail!("{media_type} not found"),
     };
     // Check its availability (and if its already present).
-    ensure!(
-        episode.is_available(),
-        "episode not available (not logged in?)"
-    );
-    if episode.is_present_at(destination) {
-        termio::print_ok("episode already downloaded: nothing to do");
+    ensure!(media.is_available(), "{media_type} not available");
+    if media.is_present_at(destination) {
+        termio::print_ok("{media_type} already downloaded: nothing to do");
         return Ok(());
     }
 
     // Setup the progress bar.
-    println!("Downloading {} {:03}", serie.title(), episode.number());
-    let progress_bar = ProgressBar::new(episode.page_count().into());
+    println!("Downloading {} {:03}", serie.title(), media.number());
+    let progress_bar = ProgressBar::new(media.page_count().into());
     setup_page_progress_bar(&progress_bar);
 
     // Download o/
-    download_episode(client, episode, destination, &progress_bar)
-        .with_context(|| format!("download episode {:03}", episode.number()))?;
+    download_pages(client, media, destination, &progress_bar)
+        .with_context(|| format!("download {}", media.title()))?;
 
     progress_bar.finish();
 
@@ -132,26 +133,27 @@ fn download_one(
 }
 
 /// Downloads an entire serie.
-fn download_all(
+fn download_serie(
     client: &Client,
     destination: &Path,
     serie: &Serie,
+    media_type: MediaType,
 ) -> Result<()> {
-    // Filter out (and log) unavailable and already downloaded episodes.
-    let episodes = serie
-        .episodes()
-        .filter(|episode| {
-            if !episode.is_available() {
+    // Filter out (and log) unavailable and already downloaded media.
+    let media_list = serie
+        .media()
+        .filter(|media| {
+            if !media.is_available() {
                 termio::print_warn(&format!(
-                    "episode {:03} not available (not logged in?)",
-                    episode.number()
+                    "{media_type} {} not available",
+                    media.number()
                 ));
                 return false;
             }
-            if episode.is_present_at(destination) {
+            if media.is_present_at(destination) {
                 termio::print_ok(&format!(
-                    "episode {:03} already downloaded",
-                    episode.number()
+                    "{media_type} {} already downloaded",
+                    media.number()
                 ));
                 return false;
             }
@@ -160,20 +162,20 @@ fn download_all(
         })
         .collect::<Vec<_>>();
 
-    // Setup the progress bars (for episodes and pages).
+    // Setup the progress bars (for media and pages).
     println!("Downloading {}", serie.title());
     let progress_bars = MultiProgress::new();
-    let episode_pb = progress_bars.add(ProgressBar::new(episodes.len() as u64));
-    episode_pb.set_style(
+    let media_pb = progress_bars.add(ProgressBar::new(media_list.len() as u64));
+    media_pb.set_style(
         ProgressStyle::default_bar()
             .template("{msg:10}    [{bar:40.cyan/blue}] {pos:>4}/{len:4}")
             .progress_chars("##-"),
     );
-    episode_pb.set_message("episodes");
+    media_pb.set_message(media_type.to_string());
     let page_pb = progress_bars.add(ProgressBar::new(
-        episodes
+        media_list
             .iter()
-            .map(|episode| u64::from(episode.page_count()))
+            .map(|media| u64::from(media.page_count()))
             .sum(),
     ));
     setup_page_progress_bar(&page_pb);
@@ -182,28 +184,27 @@ fn download_all(
         progress_bars.join().expect("wait for progress bars");
     });
 
-    // Download every page of every (available) episode o/
-    for episode in episodes {
-        download_episode(client, episode, destination, &page_pb).with_context(
-            || format!("download episode {:03}", episode.number()),
-        )?;
-        episode_pb.inc(1);
+    // Download every page of every (available) media o/
+    for media in media_list {
+        download_pages(client, media, destination, &page_pb)
+            .with_context(|| format!("download {}", media.title()))?;
+        media_pb.inc(1);
     }
 
     page_pb.finish();
-    episode_pb.finish();
+    media_pb.finish();
 
     Ok(())
 }
 
-/// Downloads the specified episode as CBZ.
-fn download_episode(
+/// Downloads the specified media pages as CBZ.
+fn download_pages(
     client: &Client,
-    episode: &Episode,
+    media: &Media,
     directory: &Path,
     progress_bar: &ProgressBar,
 ) -> Result<()> {
-    let title = episode.title();
+    let title = media.title();
     let mut buf = Vec::new();
 
     // Download every image and make a CBZ out of them, all in-memory.
@@ -211,12 +212,12 @@ fn download_episode(
         let mut cbz = ZipWriter::new(Cursor::new(&mut buf));
         let options = FileOptions::default();
 
-        // Add the episode directory in the archive.
-        cbz.add_directory(&title, options)
-            .context("create episode directory")?;
+        // Add the media directory in the archive.
+        cbz.add_directory(title, options)
+            .context("create media directory")?;
 
         // XXX: we can use enumerate because the pages are sorted.
-        for (i, page) in episode.fetch_pages(client.clone())?.enumerate() {
+        for (i, page) in media.fetch_pages(client.clone())?.enumerate() {
             let filename = format!("{:03}.webp", i);
             let page =
                 page.with_context(|| format!("fetch page {}", filename))?;
@@ -238,7 +239,7 @@ fn download_episode(
     }
 
     // Atomic write of the CBZ.
-    let path = [directory, episode.filename().as_path()]
+    let path = [directory, media.filename().as_path()]
         .into_iter()
         .collect::<PathBuf>();
     fs::atomic_write(&path, &buf).context("save CBZ")
@@ -257,6 +258,11 @@ fn setup_page_progress_bar(progress_bar: &ProgressBar) {
 /// CLI options.
 #[derive(Parser)]
 #[clap(author, version, about)]
+#[clap(group(
+    ArgGroup::new("selector")
+        .required(true)
+        .args(&["type", "episode", "volume"]),
+))]
 pub struct Opts {
     /// Path to the output directory.
     #[clap(short, long, default_value = ".")]
@@ -266,9 +272,17 @@ pub struct Opts {
     #[clap(short, long)]
     serie: SerieID,
 
+    /// Media type to download.
+    #[clap(short, long = "type", arg_enum, value_parser)]
+    r#type: Option<MediaType>,
+
     /// Episode number.
     #[clap(short, long)]
     episode: Option<u16>,
+
+    /// Volume number.
+    #[clap(short, long)]
+    volume: Option<u16>,
 
     /// Email to login.
     #[clap(short, long)]
@@ -277,4 +291,21 @@ pub struct Opts {
     /// Max number of retry for HTTP requests.
     #[clap(long, default_value_t = 3)]
     retry: u8,
+}
+
+impl Opts {
+    /// Returns the selected media type.
+    #[must_use]
+    pub fn media_type(&self) -> MediaType {
+        if self.volume.is_some() {
+            return MediaType::Volume;
+        }
+
+        if self.episode.is_some() {
+            return MediaType::Episode;
+        }
+
+        // If both `volume` and `episode` are unset, the `type` must be set.
+        self.r#type.expect("media type")
+    }
 }

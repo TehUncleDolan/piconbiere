@@ -15,6 +15,14 @@ Possible sections are:
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Support for volumes
+
+### Changed
+
+- `-s` now requires one of `-t` (to specify the media type), `-v` or `-e`
+
 ## [0.1.2] - 2022-07-03
 
 ### Fixed

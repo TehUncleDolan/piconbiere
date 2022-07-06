@@ -1,34 +1,41 @@
-use crate::{models, Client, Episode, NEXT_DATA_SELECTOR};
+use crate::{models, Client, Media, MediaType, NEXT_DATA_SELECTOR};
 use eyre::{ensure, eyre, Result, WrapErr};
 use kuchiki::traits::*;
 use std::{fmt, str::FromStr};
 use url::Url;
 
 /// A media serie.
+#[derive(Debug)]
 pub struct Serie {
     /// Serie title.
     title: String,
-    /// Episode list.
-    episodes: Vec<Episode>,
+    /// Media list.
+    media: Vec<Media>,
 }
 
 impl Serie {
     /// Initializes a new serie.
-    pub fn new(client: &Client, id: SerieID) -> Result<Self> {
-        // We have two way of extracting the list of episode:
+    pub fn new(
+        client: &Client,
+        id: SerieID,
+        media_type: MediaType,
+    ) -> Result<Self> {
+        // We have two way of extracting the list of media:
         // - the API
         // - the embedded JSON payload
         //
         // API can only be used if you are logged in.
-        // Embedded JSON payload only contains unread episode when you're logged
-        // in, otherwise it's complete.
+        // Embedded JSON payload only contains unread media when you're
+        // logged in, otherwise it's complete.
         //
         // So, if we're logged in we use the API and in guest mode we rely on
         // the JSON.
         let info = if client.is_logged_in() {
-            get_info_from_api(client, id).context("get serie info from API")?
+            get_info_from_api(client, id, media_type)
+                .context("get serie info from API")?
         } else {
-            get_info_from_web(client, id).context("get serie info from web")?
+            get_info_from_web(client, id, media_type)
+                .context("get serie info from web")?
         };
 
         info.try_into()
@@ -39,16 +46,16 @@ impl Serie {
         &self.title
     }
 
-    /// Returns the number of episodes.
-    pub fn episodes_count(&self) -> usize {
-        self.episodes.len()
+    /// Returns the number of media.
+    pub fn media_count(&self) -> usize {
+        self.media.len()
     }
 
-    /// Returns the episodes.
-    pub fn episodes(
+    /// Returns the media.
+    pub fn media(
         &self,
-    ) -> impl Iterator<Item = &Episode> + ExactSizeIterator + '_ {
-        self.episodes.iter()
+    ) -> impl Iterator<Item = &Media> + ExactSizeIterator + '_ {
+        self.media.iter()
     }
 }
 
@@ -56,8 +63,13 @@ impl Serie {
 fn get_info_from_api(
     client: &Client,
     id: SerieID,
+    media_type: MediaType,
 ) -> Result<models::serie::Data> {
-    let url = Url::parse(&format!("https://piccoma.com/fr/api/haribo/api/web/v3/product/{id}/episodes?episode_type=E&product_id={id}")).expect("valid serie API URL");
+    let selector = match media_type {
+        MediaType::Episode => 'E',
+        MediaType::Volume => 'V',
+    };
+    let url = Url::parse(&format!("https://piccoma.com/fr/api/haribo/api/web/v3/product/{id}/episodes?episode_type={selector}&product_id={id}")).expect("valid serie API URL");
 
     Ok(client
         .get_json::<models::serie::ApiResponse>(&url)
@@ -69,10 +81,15 @@ fn get_info_from_api(
 fn get_info_from_web(
     client: &Client,
     id: SerieID,
+    media_type: MediaType,
 ) -> Result<models::serie::Data> {
+    let selector = match media_type {
+        MediaType::Episode => "episode",
+        MediaType::Volume => "volume",
+    };
     // Fetch the serie page.
     let url =
-        Url::parse(&format!("https://piccoma.com/fr/product/episode/{}", id))
+        Url::parse(&format!("https://piccoma.com/fr/product/{selector}/{id}"))
             .expect("valid serie web URL");
     let html = client.get_html(&url).context("get series page")?;
 
@@ -101,15 +118,17 @@ impl TryFrom<models::serie::Data> for Serie {
 
         Ok(Self {
             title: value.product.title,
-            episodes: value
-                .episode_list
+            media: value
+                .media_list
                 .into_iter()
-                .map(Episode::try_from)
+                .map(Media::try_from)
                 .collect::<Result<Vec<_>, _>>()
-                .context("extract episodes")?,
+                .context("extract media")?,
         })
     }
 }
+
+// -----------------------------------------------------------------------------
 
 /// Serie ID on Piccoma.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

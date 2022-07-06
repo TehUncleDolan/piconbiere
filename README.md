@@ -48,12 +48,17 @@ piconbiere --serie 208 --episode 1
 To download every episode from a serie:
 
 ```text
-piconbiere --serie 208 --user foo@email.com
+piconbiere --serie 208 --type episode --user foo@email.com
 ```
 
 `-user` can be used to login with your account in order to access the episodes
 you've bought (you'll be prompted for your password).
 
+Or if you prefer by volume:
+
+```text
+piconbiere --serie 208 --type volume --user foo@email.com
+```
 
 For more advanced options, please consult the help:
 

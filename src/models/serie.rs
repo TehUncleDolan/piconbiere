@@ -1,6 +1,14 @@
 //! Mininal model of the data returned by `/api/web/v3/product/<ID>/episodes`.
 
+use crate::MediaType;
 use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+pub struct Data {
+    pub product: Product,
+    #[serde(rename = "episode_list")]
+    pub media_list: Vec<Media>,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct Product {
@@ -9,7 +17,7 @@ pub struct Product {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Episode {
+pub struct Media {
     // Episode ID
     pub id: u32,
     // Serie ID.
@@ -18,12 +26,15 @@ pub struct Episode {
     pub volume: u16,
     // Title
     pub title: String,
-    // Episode order.
+    // Media order.
     pub order_value: u16,
     // Page count.
     pub page_count: u16,
     // Usage type.
     pub use_type: String,
+    // Media type
+    #[serde(rename = "episode_type")]
+    pub media_type: MediaType,
 }
 
 // From the API {{{
@@ -31,12 +42,6 @@ pub struct Episode {
 #[derive(Debug, Deserialize)]
 pub struct ApiResponse {
     pub data: Data,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Data {
-    pub product: Product,
-    pub episode_list: Vec<Episode>,
 }
 
 // }}}
