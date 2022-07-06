@@ -26,3 +26,15 @@ pub fn print_warn(msg: &str) {
 
     stdout.reset().expect("reset color");
 }
+
+/// Print a warning message, in red.
+pub fn print_err(msg: &str) {
+    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+
+    stdout
+        .set_color(ColorSpec::new().set_fg(Some(Color::Red)))
+        .expect("set color");
+    writeln!(&mut stdout, "ERROR {}", msg).expect("write message");
+
+    stdout.reset().expect("reset color");
+}

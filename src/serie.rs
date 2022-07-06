@@ -52,9 +52,7 @@ impl Serie {
     }
 
     /// Returns the media.
-    pub fn media(
-        &self,
-    ) -> impl Iterator<Item = &Media> + ExactSizeIterator + '_ {
+    pub fn media(&self) -> impl Iterator<Item = &Media> + '_ {
         self.media.iter()
     }
 }

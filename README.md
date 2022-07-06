@@ -9,7 +9,7 @@
 
 ## Overview
 
-PiconBier scrape images from [Piccoma website](https://piccoma.com/fr).
+PiconBiere scrape images from [Piccoma website](https://piccoma.com/fr).
 
 ## Installing
 
@@ -42,22 +42,37 @@ following.
 To download a single episode from a serie, using guest mode:
 
 ```text
-piconbiere --serie 208 --episode 1
+piconbiere --serie 208 --number 1
 ```
 
-To download every episode from a serie:
+To download a single volume from a serie, using your account:
 
 ```text
-piconbiere --serie 208 --type episode --user foo@email.com
+piconbiere --serie 208 --number 1 --type volume --user foo@email.com
 ```
 
-`-user` can be used to login with your account in order to access the episodes
+`--user` is used to login with your account in order to access the media
 you've bought (you'll be prompted for your password).
 
-Or if you prefer by volume:
+`--number` can be repeated in order to download multiple episodes (or volumes)
+in single run.
+
+For example, to download the episodes 1, 3 and 8:
+
+```test
+piconbiere --serie 208 -n 1 -n 3 -n 8
+```
+
+Finally, you can download every episode of a serie with:
 
 ```text
-piconbiere --serie 208 --type volume --user foo@email.com
+piconbiere --serie 208 -u foo@email.com
+```
+
+Or, every volume (when `--type` is not specified it defaults to episode)::
+
+```text
+piconbiere --serie 208 -t volume -u foo@email.com
 ```
 
 For more advanced options, please consult the help:

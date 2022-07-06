@@ -18,10 +18,12 @@ Possible sections are:
 ### Added
 
 - Support for volumes
+- Support for downloading multiple episodes/volumes in a single run
 
 ### Changed
 
-- `-s` now requires one of `-t` (to specify the media type), `-v` or `-e`
+- `-t/--type` can be used to specify the media type (default: `episode`)
+- `-e/--episode` is replaced by `-n/--number`
 
 ## [0.1.2] - 2022-07-03
 

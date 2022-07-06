@@ -43,11 +43,12 @@
 
 // }}}
 
-use clap::{ArgGroup, Parser};
-use eyre::{bail, ensure, eyre, Result, WrapErr};
+use clap::Parser;
+use eyre::{ensure, eyre, Result, WrapErr};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use piconbiere::{fs, termio, Client, Media, MediaType, Serie, SerieID};
 use std::{
+    collections::{HashMap, HashSet},
     io::{Cursor, Write},
     path::{Path, PathBuf},
     thread,
@@ -56,7 +57,6 @@ use zip::{write::FileOptions, ZipWriter};
 
 fn main() -> Result<()> {
     let opts = Opts::parse();
-    let media_type = opts.media_type();
     let client = Client::new(opts.retry);
 
     // If a username is provided, try to login.
@@ -70,7 +70,7 @@ fn main() -> Result<()> {
 
     // Fetch serie info and media list.
     let serie =
-        Serie::new(&client, opts.serie, media_type).context("get serie")?;
+        Serie::new(&client, opts.serie, opts.r#type).context("get serie")?;
 
     // Create output directory, if necessary.
     let destination = [opts.output, fs::sanitize_name(serie.title())]
@@ -78,89 +78,21 @@ fn main() -> Result<()> {
         .collect::<PathBuf>();
     fs::mkdir_p(&destination).context("create serie directory")?;
 
-    // Download the pages.
-    if let Some(episode) = opts.episode {
-        download_media(&client, &destination, &serie, episode, media_type)
-            .with_context(|| {
-                format!("download serie {} episode {episode}", opts.serie)
-            })?;
-    } else if let Some(volume) = opts.volume {
-        download_media(&client, &destination, &serie, volume, media_type)
-            .with_context(|| {
-                format!("download serie {} volume {volume}", opts.serie)
-            })?;
-    } else {
-        download_serie(&client, &destination, &serie, media_type)
-            .with_context(|| format!("download serie {}", opts.serie))?;
-    }
+    download(&client, &destination, &serie, opts.r#type, &opts.number)
+        .with_context(|| format!("download serie {}", opts.serie))?;
 
     Ok(())
 }
 
-/// Downloads a single media.
-fn download_media(
-    client: &Client,
-    destination: &Path,
-    serie: &Serie,
-    media_number: u16,
-    media_type: MediaType,
-) -> Result<()> {
-    // Select the requested media.
-    let media = match serie.media().find(|media| media.number() == media_number)
-    {
-        Some(media) => media,
-        None => bail!("{media_type} not found"),
-    };
-    // Check its availability (and if its already present).
-    ensure!(media.is_available(), "{media_type} not available");
-    if media.is_present_at(destination) {
-        termio::print_ok("{media_type} already downloaded: nothing to do");
-        return Ok(());
-    }
-
-    // Setup the progress bar.
-    println!("Downloading {} {:03}", serie.title(), media.number());
-    let progress_bar = ProgressBar::new(media.page_count().into());
-    setup_page_progress_bar(&progress_bar);
-
-    // Download o/
-    download_pages(client, media, destination, &progress_bar)
-        .with_context(|| format!("download {}", media.title()))?;
-
-    progress_bar.finish();
-
-    Ok(())
-}
-
-/// Downloads an entire serie.
-fn download_serie(
+fn download(
     client: &Client,
     destination: &Path,
     serie: &Serie,
     media_type: MediaType,
+    selection: &[u16],
 ) -> Result<()> {
-    // Filter out (and log) unavailable and already downloaded media.
-    let media_list = serie
-        .media()
-        .filter(|media| {
-            if !media.is_available() {
-                termio::print_warn(&format!(
-                    "{media_type} {} not available",
-                    media.number()
-                ));
-                return false;
-            }
-            if media.is_present_at(destination) {
-                termio::print_ok(&format!(
-                    "{media_type} {} already downloaded",
-                    media.number()
-                ));
-                return false;
-            }
-
-            true
-        })
-        .collect::<Vec<_>>();
+    let media_list =
+        compute_media_list(serie.media(), media_type, selection, destination)?;
 
     // Setup the progress bars (for media and pages).
     println!("Downloading {}", serie.title());
@@ -255,14 +187,65 @@ fn setup_page_progress_bar(progress_bar: &ProgressBar) {
     progress_bar.set_message("pages");
 }
 
+/// Computes the list of media to download.
+///
+/// Filter out (and log) unavailable and already downloaded media, only retains
+/// the selection.
+fn compute_media_list<'a>(
+    media: impl Iterator<Item = &'a Media>,
+    media_type: MediaType,
+    selection: &[u16],
+    destination: &Path,
+) -> Result<Vec<&'a Media>> {
+    // Index media by their number.
+    let media_list = media.fold(HashMap::new(), |mut acc, m| {
+        acc.insert(m.number(), m);
+        acc
+    });
+    // Check that the selected media exists.
+    let selection_len = selection.len();
+    let selection = selection.iter().fold(HashSet::new(), |mut acc, number| {
+        if media_list.contains_key(number) {
+            acc.insert(number);
+        } else {
+            termio::print_err(&format!("{media_type} {number} not found"));
+        }
+        acc
+    });
+    ensure!(
+        selection.len() == selection_len,
+        "some selected {media_type} doesn't exists"
+    );
+    // Skip unselected media and filter out unavailable/already downloaded ones.
+    Ok(media_list
+        .into_values()
+        .filter(|media| {
+            if !selection.contains(&media.number()) {
+                return false;
+            }
+            if !media.is_available() {
+                termio::print_warn(&format!(
+                    "{media_type} {} not available",
+                    media.number()
+                ));
+                return false;
+            }
+            if media.is_present_at(destination) {
+                termio::print_ok(&format!(
+                    "{media_type} {} already downloaded",
+                    media.number()
+                ));
+                return false;
+            }
+
+            true
+        })
+        .collect())
+}
+
 /// CLI options.
 #[derive(Parser)]
 #[clap(author, version, about)]
-#[clap(group(
-    ArgGroup::new("selector")
-        .required(true)
-        .args(&["type", "episode", "volume"]),
-))]
 pub struct Opts {
     /// Path to the output directory.
     #[clap(short, long, default_value = ".")]
@@ -272,17 +255,13 @@ pub struct Opts {
     #[clap(short, long)]
     serie: SerieID,
 
+    /// Episode or volume number.
+    #[clap(short, long)]
+    number: Vec<u16>,
+
     /// Media type to download.
-    #[clap(short, long = "type", arg_enum, value_parser)]
-    r#type: Option<MediaType>,
-
-    /// Episode number.
-    #[clap(short, long)]
-    episode: Option<u16>,
-
-    /// Volume number.
-    #[clap(short, long)]
-    volume: Option<u16>,
+    #[clap(short, long = "type", arg_enum, value_parser, default_value_t = MediaType::Episode)]
+    r#type: MediaType,
 
     /// Email to login.
     #[clap(short, long)]
@@ -291,21 +270,4 @@ pub struct Opts {
     /// Max number of retry for HTTP requests.
     #[clap(long, default_value_t = 3)]
     retry: u8,
-}
-
-impl Opts {
-    /// Returns the selected media type.
-    #[must_use]
-    pub fn media_type(&self) -> MediaType {
-        if self.volume.is_some() {
-            return MediaType::Volume;
-        }
-
-        if self.episode.is_some() {
-            return MediaType::Episode;
-        }
-
-        // If both `volume` and `episode` are unset, the `type` must be set.
-        self.r#type.expect("media type")
-    }
 }
