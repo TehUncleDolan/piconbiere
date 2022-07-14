@@ -18,7 +18,6 @@ image = { version = "0.24", default-features = false, features = ["jpeg_rayon", 
 indicatif = "0.16"
 kuchiki = "0.8"
 once_cell = "1.0"
-rand = "0.8"
 regex = "1.0"
 rpassword = "6.0"
 serde = { version = "1.0", features = ["derive"] }

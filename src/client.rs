@@ -2,7 +2,6 @@
 
 use eyre::{Result, WrapErr};
 use kuchiki::traits::*;
-use rand::prelude::*;
 use serde::de::DeserializeOwned;
 use std::{io::Read, thread, time::Duration};
 use url::Url;
@@ -104,9 +103,7 @@ impl Client {
     /// Executes a request and handle retries.
     fn call(&self, request: ureq::Request) -> Result<ureq::Response> {
         // Wait a bit, don't overload the site.
-        let mut rng = rand::thread_rng();
-        let jiffy = Duration::from_millis(rng.gen_range(0u32..1000).into());
-        thread::sleep(self.delay + jiffy);
+        thread::sleep(self.delay);
 
         // Set referer to looks kinda legit.
         let request = request.set("Referer", REFERER);

@@ -843,7 +843,6 @@ dependencies = [
  "indicatif",
  "kuchiki",
  "once_cell",
- "rand 0.8.5",
  "regex",
  "rpassword",
  "serde",
