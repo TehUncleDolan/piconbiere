@@ -15,6 +15,8 @@ Possible sections are:
 
 ## [Unreleased] - ReleaseDate
 
+## [0.2.3] - 2022-07-14
+
 ### Removed
 
 - remove delay randomization

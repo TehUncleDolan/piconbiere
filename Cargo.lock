@@ -834,7 +834,7 @@ dependencies = [
 
 [[package]]
 name = "piconbiere"
-version = "0.2.3-alpha.0"
+version = "0.2.3"
 dependencies = [
  "braque",
  "clap",
